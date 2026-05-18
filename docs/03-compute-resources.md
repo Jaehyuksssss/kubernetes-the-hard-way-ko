@@ -159,7 +159,8 @@ done < machines.txt
 이 옵션을 쓰지 않으면 처음 접속할 때 다음과 같은 host key 확인 질문이 나올 수 있습니다.
 
 ```text
-Are you sure you want to continue connecting (yes/no/[fingerprint])?
+Are you sure you want to continue connecting (yes/
+no/[fingerprint])?
 ```
 
 이 경우 `yes`를 입력합니다. 이 과정은 SSH가 처음 보는 서버의 host key를 `known_hosts`에 저장하는 단계입니다.
