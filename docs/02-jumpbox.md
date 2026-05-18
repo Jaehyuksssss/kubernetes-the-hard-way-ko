@@ -201,4 +201,95 @@ Kustomize Version: v5.5.0
 
 여기까지 완료하면 `jumpbox`에는 이후 실습을 진행하는 데 필요한 기본 도구와 Kubernetes 바이너리가 준비된 상태입니다.
 
+# 정리
+
+이번 단계는 `jumpbox` VM 안에서 `root` 사용자로 진행했습니다.
+
+```bash
+multipass shell jumpbox
+sudo -i
+cd kubernetes-the-hard-way-ko
+pwd
+```
+
+작업 디렉터리는 다음과 같이 확인했습니다.
+
+```text
+/root/kubernetes-the-hard-way-ko
+```
+
+현재 `jumpbox`의 아키텍처는 `arm64`로 확인되었습니다. 그래서 `downloads-arm64.txt` 파일에 적힌 바이너리 목록을 사용했습니다.
+
+```bash
+cat downloads-$(dpkg --print-architecture).txt
+```
+
+확인한 주요 다운로드 대상은 다음과 같습니다.
+
+- `kubectl`
+- `kube-apiserver`
+- `kube-controller-manager`
+- `kube-scheduler`
+- `kube-proxy`
+- `kubelet`
+- `crictl`
+- `runc`
+- `cni-plugins`
+- `containerd`
+- `etcd`
+
+다음 명령으로 필요한 바이너리를 모두 다운로드했습니다.
+
+```bash
+wget -q --show-progress \
+  --https-only \
+  --timestamping \
+  -P downloads \
+  -i downloads-$(dpkg --print-architecture).txt
+```
+
+다운로드가 끝난 뒤 압축 파일을 해제하고 바이너리를 역할별 디렉터리로 정리했습니다.
+
+```bash
+{
+  ARCH=$(dpkg --print-architecture)
+  mkdir -p downloads/{client,cni-plugins,controller,worker}
+  tar -xvf downloads/crictl-v1.32.0-linux-${ARCH}.tar.gz \
+    -C downloads/worker/
+  tar -xvf downloads/containerd-2.1.0-beta.0-linux-${ARCH}.tar.gz \
+    --strip-components 1 \
+    -C downloads/worker/
+  tar -xvf downloads/cni-plugins-linux-${ARCH}-v1.6.2.tgz \
+    -C downloads/cni-plugins/
+  tar -xvf downloads/etcd-v3.6.0-rc.3-linux-${ARCH}.tar.gz \
+    -C downloads/ \
+    --strip-components 1 \
+    etcd-v3.6.0-rc.3-linux-${ARCH}/etcdctl \
+    etcd-v3.6.0-rc.3-linux-${ARCH}/etcd
+  mv downloads/{etcdctl,kubectl} downloads/client/
+  mv downloads/{etcd,kube-apiserver,kube-controller-manager,kube-scheduler} \
+    downloads/controller/
+  mv downloads/{kubelet,kube-proxy} downloads/worker/
+  mv downloads/runc.${ARCH} downloads/worker/runc
+}
+```
+
+그다음 압축 파일을 삭제하고, 실행 권한을 부여한 뒤, `kubectl`을 설치했습니다.
+
+```bash
+rm -rf downloads/*gz
+chmod +x downloads/{client,cni-plugins,controller,worker}/*
+cp downloads/client/kubectl /usr/local/bin/
+kubectl version --client
+```
+
+`kubectl` 설치 확인 결과는 다음과 같았습니다.
+
+```text
+Client Version: v1.32.3
+Kustomize Version: v5.5.0
+```
+
+따라서 `02-jumpbox.md` 단계는 완료되었습니다. 다음 단계에서는 `jumpbox`에서 `server`, `node-0`, `node-1`을 관리할 수 있도록 머신 정보와 SSH 접근을 설정합니다.
+
 다음 단계: [컴퓨트 리소스 준비하기](03-compute-resources.md)
