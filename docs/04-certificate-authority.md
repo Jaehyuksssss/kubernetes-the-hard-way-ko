@@ -193,8 +193,136 @@ ssh root@server "ls -l ~/ca.* ~/kube-api-server.* ~/service-accounts.*"
 
 여기까지 완료하면 Kubernetes 컴포넌트들이 서로 인증할 때 사용할 기본 TLS 재료가 준비된 상태입니다.
 
-## 내 실습 기록
+# 정리
 
-이 섹션은 실습을 완료한 뒤 실제 결과를 정리하는 곳입니다.
+이번 단계는 `jumpbox`의 저장소 디렉터리에서 진행했습니다.
+
+```bash
+cd /root/kubernetes-the-hard-way-ko
+```
+
+먼저 `ca.conf`를 확인했습니다.
+
+```bash
+cat ca.conf
+```
+
+`ca.conf`는 각 인증서에 들어갈 이름, 조직, DNS 이름, IP 주소, 확장 설정을 정의하는 파일입니다. 이 파일의 section 이름을 기준으로 `admin`, `node-0`, `node-1`, `kube-api-server` 같은 인증서가 생성됩니다.
+
+CA private key와 CA 인증서를 생성했습니다.
+
+```bash
+{
+  openssl genrsa -out ca.key 4096
+  openssl req -x509 -new -sha512 -noenc \
+    -key ca.key -days 3653 \
+    -config ca.conf \
+    -out ca.crt
+}
+```
+
+생성된 핵심 파일은 다음과 같습니다.
+
+```text
+ca.key
+ca.crt
+```
+
+`ca.key`는 다른 인증서에 서명하는 데 쓰이는 CA private key이고, `ca.crt`는 Kubernetes 컴포넌트들이 신뢰할 CA 인증서입니다.
+
+그다음 Kubernetes 컴포넌트와 `admin` 사용자용 인증서 목록을 만들었습니다.
+
+```bash
+certs=(
+  "admin" "node-0" "node-1"
+  "kube-proxy" "kube-scheduler"
+  "kube-controller-manager"
+  "kube-api-server"
+  "service-accounts"
+)
+```
+
+각 항목에 대해 private key, CSR, CA가 서명한 인증서를 생성했습니다.
+
+```bash
+for i in ${certs[*]}; do
+  openssl genrsa -out "${i}.key" 4096
+
+  openssl req -new -key "${i}.key" -sha256 \
+    -config "ca.conf" -section ${i} \
+    -out "${i}.csr"
+
+  openssl x509 -req -days 3653 -in "${i}.csr" \
+    -copy_extensions copyall \
+    -sha256 -CA "ca.crt" \
+    -CAkey "ca.key" \
+    -CAcreateserial \
+    -out "${i}.crt"
+done
+```
+
+생성된 파일은 다음 명령으로 확인했습니다.
+
+```bash
+ls -1 *.crt *.key *.csr
+```
+
+이 단계에서 만들어진 인증서들은 다음 용도로 사용됩니다.
+
+- `admin`: 관리자가 `kubectl`로 API 서버에 접근할 때 사용
+- `node-0`, `node-1`: 각 worker node의 `kubelet` 인증에 사용
+- `kube-proxy`: `kube-proxy`가 API 서버와 통신할 때 사용
+- `kube-scheduler`: scheduler가 API 서버와 통신할 때 사용
+- `kube-controller-manager`: controller manager가 API 서버와 통신할 때 사용
+- `kube-api-server`: API 서버가 HTTPS 서버로 동작할 때 사용
+- `service-accounts`: ServiceAccount token 서명과 검증에 사용
+
+생성한 인증서를 각 머신에 배포했습니다.
+
+먼저 `node-0`, `node-1`에는 kubelet이 사용할 인증서를 복사했습니다.
+
+```bash
+for host in node-0 node-1; do
+  ssh root@${host} mkdir /var/lib/kubelet/
+
+  scp ca.crt root@${host}:/var/lib/kubelet/
+
+  scp ${host}.crt \
+    root@${host}:/var/lib/kubelet/kubelet.crt
+
+  scp ${host}.key \
+    root@${host}:/var/lib/kubelet/kubelet.key
+done
+```
+
+각 worker node에는 다음 파일들이 들어갔습니다.
+
+```text
+/var/lib/kubelet/ca.crt
+/var/lib/kubelet/kubelet.crt
+/var/lib/kubelet/kubelet.key
+```
+
+`server`에는 API server와 service account에 필요한 인증서를 복사했습니다.
+
+```bash
+scp \
+  ca.key ca.crt \
+  kube-api-server.key kube-api-server.crt \
+  service-accounts.key service-accounts.crt \
+  root@server:~/
+```
+
+복사 결과는 다음 명령으로 확인했습니다.
+
+```bash
+for host in node-0 node-1; do
+  ssh root@${host} "ls -l /var/lib/kubelet"
+done
+
+ssh root@server "ls -l ~/ca.* ~/kube-api-server.* ~/service-accounts.*"
+```
+
+따라서 `04-certificate-authority.md` 단계는 완료되었습니다. 이 단계에서 만든 인증서와 key는 다음 단계에서 kubeconfig 파일을 만들 때 사용됩니다.
 
 다음 단계: [Kubernetes 인증 설정 파일 생성하기](05-kubernetes-configuration-files.md)
