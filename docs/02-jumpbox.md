@@ -65,7 +65,7 @@ git clone --depth 1 \
 저장소 디렉터리로 이동합니다.
 
 ```bash
-cd kubernetes-the-hard-way
+cd kubernetes-the-hard-way-ko
 ```
 
 앞으로 대부분의 명령은 이 디렉터리에서 실행합니다. 중간에 위치가 헷갈리면 `pwd`로 현재 경로를 확인합니다.
@@ -77,7 +77,7 @@ pwd
 예상 출력은 다음과 같습니다.
 
 ```text
-/root/kubernetes-the-hard-way
+/root/kubernetes-the-hard-way-ko
 ```
 
 이 위치를 확인하는 이유는 이후 명령들이 `configs`, `units`, `downloads-*.txt` 같은 상대 경로를 사용하기 때문입니다. 다른 디렉터리에서 실행하면 파일을 찾지 못할 수 있습니다.
